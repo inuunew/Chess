@@ -190,15 +190,45 @@ function startNewGame() {
 
 function makeBotMove() {
     if (game.game_over()) return;
+
+    // --- 1. SIMULASI ELO RENDAH (MANUSIAWI BLUNDER) ---
+    // Jika ELO di bawah 1000, kita buat bot punya peluang "salah langkah" secara acak
+    if (gameElo < 1000) {
+        // Rumus peluang acak: ELO 100 = 85% ngasal, ELO 500 = 45% ngasal, ELO 900 = 5% ngasal
+        let blunderChance = (1000 - gameElo) / 1000; 
+        
+        if (Math.random() < blunderChance) {
+            let legalMoves = game.moves({ verbose: true });
+            if (legalMoves.length > 0) {
+                // Bot memilih gerakan acak (bisa jadi blunder fatal)
+                let randomMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+                game.move({
+                    from: randomMove.from,
+                    to: randomMove.to,
+                    promotion: 'q'
+                });
+                board.position(game.fen());
+                checkGameEnd();
+                return; // Berhenti di sini, tidak perlu memanggil Stockfish
+            }
+        }
+    }
+
+    // --- 2. JIKA LOLOS / ELO TINGGI, BARU TANYA STOCKFISH ---
     stockfish.postMessage('uci');
     stockfish.postMessage('setoption name UCI_LimitStrength value true');
-    stockfish.postMessage('setoption name UCI_Elo value ' + gameElo);
+    
+    // FIX: Stockfish minimal menerima ELO 1100. Kita kunci batas bawahnya di sini.
+    let stockfishElo = Math.max(1100, gameElo);
+    stockfish.postMessage('setoption name UCI_Elo value ' + stockfishElo);
+    
     stockfish.postMessage('position fen ' + game.fen());
     
-    // Otomatisasi depth sesuai Elo agar realistis
-    let depth = gameElo < 1000 ? 3 : (gameElo <= 2000 ? 8 : 15);
+    // Kedalaman mikir Stockfish (Depth)
+    let depth = gameElo < 1500 ? 2 : (gameElo <= 2200 ? 6 : 12);
     stockfish.postMessage('go depth ' + depth);
 }
+
 
 function checkGameEnd() {
     if (game.in_checkmate()) {
