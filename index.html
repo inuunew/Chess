@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Web Chess AI - SPA Mode</title>
+    <title>Pro Web Chess AI - Analysis Mode</title>
     
+    <!-- Pustaka CSS Chessboard.js -->
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <link rel="stylesheet" href="style.css">
     
+    <!-- Pustaka JavaScript -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
@@ -15,6 +17,7 @@
 <body>
     <div class="app-container">
         
+        <!-- VIEW 1: HALAMAN AWAL (HOME) -->
         <div id="view-home" class="view-section">
             <h1 class="main-title">Catur AI Web</h1>
             <button id="btn-goto-setup" class="btn-primary btn-large">Mulai Game Baru</button>
@@ -22,20 +25,20 @@
             <div class="match-history-container">
                 <h2>List Pertandingan</h2>
                 <div id="match-list" class="match-list">
-                    </div>
+                    <!-- Daftar pertandingan render via JS -->
+                </div>
             </div>
         </div>
 
+        <!-- VIEW 2: HALAMAN SETUP ELO -->
         <div id="view-setup" class="view-section hidden">
             <div class="modal-card">
                 <h2>Persiapan Game</h2>
                 <p class="subtitle">Tentukan kekuatan Bot (ELO) sebelum memulai.</p>
-                
                 <div class="control-group">
                     <label for="elo-slider">Kekuatan AI: <span id="elo-display" class="highlight">1500</span> ELO</label>
                     <input type="range" id="elo-slider" min="100" max="3400" step="50" value="1500">
                 </div>
-                
                 <div class="button-group-row">
                     <button id="btn-cancel-setup" class="btn-secondary">Kembali</button>
                     <button id="btn-start-game" class="btn-primary">Mulai Bertanding!</button>
@@ -43,38 +46,48 @@
             </div>
         </div>
 
+        <!-- VIEW 3: HALAMAN PAPAN (IN-GAME & ANALISIS) -->
         <div id="view-board-area" class="view-section hidden">
+            
+            <!-- HEADER NAMA PEMBUKAAN (Khusus Analisis) -->
+            <div id="opening-header" class="hidden">
+                <h3 id="opening-name-text">Posisi Awal</h3>
+            </div>
+
             <div class="board-layout">
-                
+                <!-- Area Kiri: Papan Catur & Badge Layar -->
                 <div class="board-wrapper">
                     <div id="board"></div>
                     <canvas id="arrowCanvas"></canvas>
                 </div>
 
+                <!-- Area Kanan: Panel -->
                 <div class="panel-area">
                     
+                    <!-- BAR EVALUASI HORIZONTAL (Mirip Lichess/Chess.com) -->
+                    <div id="eval-bar-horizontal" class="eval-bar-horizontal">
+                        <div id="eval-fill-horizontal" class="eval-fill-horizontal"></div>
+                        <span id="eval-text-horizontal">0.00</span>
+                    </div>
+
+                    <!-- PANEL IN-GAME -->
                     <div id="panel-ingame">
                         <div class="ingame-status">Permainan Berlangsung</div>
                         <button id="btn-resign" class="btn-danger btn-large">Menyerah</button>
                     </div>
 
+                    <!-- PANEL ANALISIS -->
                     <div id="panel-analysis" class="hidden">
-                        <div class="analysis-header">
-                            <h3>Mode Analisis</h3>
-                            <button id="btn-back-home" class="btn-secondary btn-small">Kembali ke Home</button>
-                        </div>
-                        
                         <div class="nav-buttons">
-                            <button id="btn-prev-move" class="btn-info">⬅ Sebelumnya</button>
-                            <button id="btn-next-move" class="btn-info">Selanjutnya ➡</button>
+                            <button id="btn-prev-move" class="btn-info">⬅ Mundur</button>
+                            <button id="btn-next-move" class="btn-info">Maju ➡</button>
                         </div>
-                        
-                        <button id="btn-best-move" class="btn-primary btn-full">💡 Tampilkan Langkah Terbaik</button>
+                        <button id="btn-best-move" class="btn-primary btn-full">💡 Tampilkan Saran AI</button>
+                        <button id="btn-back-home" class="btn-secondary btn-full">Kembali ke Home</button>
                         
                         <div class="analysis-box">
                             <h4>Log Pertandingan</h4>
-                            <div id="analysis-log" class="analysis-log">
-                                </div>
+                            <div id="analysis-log" class="analysis-log"></div>
                         </div>
                     </div>
 
@@ -84,6 +97,7 @@
 
     </div>
 
+    <!-- Script Utama -->
     <script src="script.js"></script>
 </body>
 </html>
