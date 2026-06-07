@@ -2,335 +2,338 @@
 let board = null;
 let game = new Chess();
 let stockfish;
-let currentAppMode = 'home'; // 'home', 'game', 'analysis'
+let currentAppMode = 'home';
 let gameElo = 1500;
 
-// Variabel Khusus Analisis
-let analysisHistory = []; // Array langkah
-let currentAnalysisIndex = -1; // -1 berarti posisi awal (sebelum langkah pertama)
+// Variabel Analisis
+let analysisHistory = [];
+let currentAnalysisIndex = -1;
+let evalCache = {}; // Menyimpan hasil evaluasi per langkah
 
-// --- INISIALISASI DOM ELEMEN ---
-// Views
+// --- KAMUS PEMBUKAAN (OPENING DICTIONARY) ---
+const openingBook = {
+    "e4": "B00: King's Pawn Game",
+    "d4": "A40: Queen's Pawn Game",
+    "c4": "A10: English Opening",
+    "e4 e5": "C20: King's Pawn Game",
+    "e4 c5": "B20: Sicilian Defense",
+    "e4 e6": "C00: French Defense",
+    "e4 c6": "B10: Caro-Kann Defense",
+    "d4 d5": "D00: Queen's Pawn Game",
+    "d4 Nf6": "A45: Indian Defense",
+    "e4 e5 Nf3": "C40: King's Knight Opening",
+    "e4 e5 Nf3 Nc6": "C44: King's Knight Opening",
+    "e4 e5 Nf3 Nc6 Bc4": "C50: Italian Game",
+    "e4 e5 Nf3 Nc6 Bc4 Bc5": "C50: Italian Game, Giuoco Piano",
+    "e4 e5 Nf3 Nc6 Bc4 Nf6": "C55: Two Knights Defense",
+    "e4 e5 Nf3 Nc6 Bb5": "C60: Ruy Lopez",
+    "e4 e5 Nf3 Nc6 d4": "C44: Scotch Game",
+    "d4 d5 c4": "D06: Queen's Gambit"
+};
+
+// --- INISIALISASI DOM ---
 const viewHome = document.getElementById('view-home');
 const viewSetup = document.getElementById('view-setup');
 const viewBoardArea = document.getElementById('view-board-area');
 const panelIngame = document.getElementById('panel-ingame');
 const panelAnalysis = document.getElementById('panel-analysis');
-
-// Elemen Home & Setup
+const openingHeader = document.getElementById('opening-header');
+const openingNameText = document.getElementById('opening-name-text');
+const evalBarHorizontal = document.getElementById('eval-bar-horizontal');
+const evalFillHorizontal = document.getElementById('eval-fill-horizontal');
+const evalTextHorizontal = document.getElementById('eval-text-horizontal');
 const matchListEl = document.getElementById('match-list');
-const eloSlider = document.getElementById('elo-slider');
-const eloDisplay = document.getElementById('elo-display');
+const logBox = document.getElementById('analysis-log');
+const canvas = document.getElementById('arrowCanvas');
+const ctx = canvas.getContext('2d');
 
-// Buttons
 document.getElementById('btn-goto-setup').addEventListener('click', showSetupScreen);
 document.getElementById('btn-cancel-setup').addEventListener('click', showHomeScreen);
 document.getElementById('btn-start-game').addEventListener('click', startNewGame);
 document.getElementById('btn-resign').addEventListener('click', handleResign);
 document.getElementById('btn-back-home').addEventListener('click', showHomeScreen);
-
-// Tombol Navigasi Analisis
 document.getElementById('btn-prev-move').addEventListener('click', analysisPrevMove);
 document.getElementById('btn-next-move').addEventListener('click', analysisNextMove);
-document.getElementById('btn-best-move').addEventListener('click', fetchBestMoveAnalysis);
+document.getElementById('btn-best-move').addEventListener('click', showBestMoveArrow);
 
-// Canvas
-const canvas = document.getElementById('arrowCanvas');
-const ctx = canvas.getContext('2d');
-const logBox = document.getElementById('analysis-log');
-
-// --- INISIALISASI WEB WORKER STOCKFISH ---
+// --- INISIALISASI STOCKFISH ---
 try {
     const workerScript = `importScripts('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');`;
-    const blob = new Blob([workerScript], { type: 'application/javascript' });
-    stockfish = new Worker(URL.createObjectURL(blob));
-} catch (error) {
+    stockfish = new Worker(URL.createObjectURL(new Blob([workerScript], { type: 'application/javascript' })));
+} catch (e) {
     stockfish = new Worker('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');
 }
 
-// Router Pesan Stockfish
+// Router Pesan Stockfish (Khusus In-Game)
 stockfish.onmessage = function(event) {
     const line = event.data;
-    
-    // Tangkap langkah bot saat bermain
     if (currentAppMode === 'game' && line.startsWith('bestmove')) {
         const bestMove = line.split(' ')[1];
         if (bestMove && bestMove !== '(none)') {
-            game.move({
-                from: bestMove.substring(0, 2),
-                to: bestMove.substring(2, 4),
-                promotion: bestMove.length > 4 ? bestMove[4] : 'q'
-            });
+            game.move({ from: bestMove.substring(0, 2), to: bestMove.substring(2, 4), promotion: 'q' });
             board.position(game.fen());
             checkGameEnd();
         }
     }
-
-    // Tangkap langkah analisis saat tombol "Cari Langkah Terbaik" diklik
-    if (currentAppMode === 'analysis' && line.startsWith('bestmove')) {
-        const bestMove = line.split(' ')[1];
-        if (bestMove && bestMove !== '(none)') {
-            drawBestMoveArrow(bestMove.substring(0, 2), bestMove.substring(2, 4));
-            document.getElementById('btn-best-move').innerText = "💡 Tampilkan Langkah Terbaik";
-            document.getElementById('btn-best-move').disabled = false;
-        }
-    }
 };
 
-// --- FUNGSI MANAJEMEN VIEW (SPA ROUTING) ---
-
+// --- FUNGSI ROUTING SPA ---
 function hideAllViews() {
-    viewHome.classList.add('hidden');
-    viewSetup.classList.add('hidden');
-    viewBoardArea.classList.add('hidden');
-    panelIngame.classList.add('hidden');
-    panelAnalysis.classList.add('hidden');
+    viewHome.classList.add('hidden'); viewSetup.classList.add('hidden');
+    viewBoardArea.classList.add('hidden'); panelIngame.classList.add('hidden');
+    panelAnalysis.classList.add('hidden'); openingHeader.classList.add('hidden');
 }
 
 function showHomeScreen() {
-    currentAppMode = 'home';
-    hideAllViews();
-    viewHome.classList.remove('hidden');
-    renderMatchHistory();
+    currentAppMode = 'home'; hideAllViews(); viewHome.classList.remove('hidden'); renderMatchHistory();
 }
 
 function showSetupScreen() {
-    hideAllViews();
-    viewSetup.classList.remove('hidden');
+    hideAllViews(); viewSetup.classList.remove('hidden');
 }
 
 function enterGameMode() {
-    currentAppMode = 'game';
-    hideAllViews();
-    viewBoardArea.classList.remove('hidden');
-    panelIngame.classList.remove('hidden');
-    
-    // --- FIX: Paksa papan menghitung ulang ukuran setelah elemen dimunculkan ---
-    if (board) board.resize();
-    // -------------------------------------------------------------------------
-    
-    syncCanvasSize();
+    currentAppMode = 'game'; hideAllViews();
+    viewBoardArea.classList.remove('hidden'); panelIngame.classList.remove('hidden');
+    evalBarHorizontal.classList.add('hidden'); // Sembunyikan bar saat main agar tidak curang
+    if (board) board.resize(); syncCanvasSize();
 }
 
 function enterAnalysisMode(matchData) {
-    currentAppMode = 'analysis';
-    hideAllViews();
-    viewBoardArea.classList.remove('hidden');
-    panelAnalysis.classList.remove('hidden');
-    
-    // --- FIX: Paksa papan menghitung ulang ukuran setelah elemen dimunculkan ---
-    if (board) board.resize();
-    // -------------------------------------------------------------------------
-    
-    syncCanvasSize();
+    currentAppMode = 'analysis'; hideAllViews();
+    viewBoardArea.classList.remove('hidden'); panelAnalysis.classList.remove('hidden');
+    openingHeader.classList.remove('hidden'); evalBarHorizontal.classList.remove('hidden');
+    if (board) board.resize(); syncCanvasSize();
     setupAnalysisBoard(matchData);
 }
 
-
-// --- LOGIKA PENYIMPANAN (LOCAL STORAGE) ---
-
-function getMatches() {
-    return JSON.parse(localStorage.getItem('chess_history')) || [];
-}
-
+// --- LOCAL STORAGE ---
+function getMatches() { return JSON.parse(localStorage.getItem('chess_history')) || []; }
 function saveMatch(result) {
     const matches = getMatches();
-    const matchData = {
-        id: Date.now(),
-        date: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit' }),
-        elo: gameElo,
-        pgn: game.pgn(),
-        result: result // 'Menang', 'Kalah', 'Seri'
-    };
-    matches.unshift(matchData); // Tambahkan di paling atas
+    matches.unshift({ id: Date.now(), date: new Date().toLocaleDateString('id-ID', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}), elo: gameElo, pgn: game.pgn(), result: result });
     localStorage.setItem('chess_history', JSON.stringify(matches));
 }
 
 function renderMatchHistory() {
-    const matches = getMatches();
     matchListEl.innerHTML = '';
-    
-    if (matches.length === 0) {
-        matchListEl.innerHTML = '<div class="empty-state">Belum ada riwayat pertandingan.</div>';
-        return;
-    }
-
-    matches.forEach(match => {
-        let cssClass = match.result === 'Menang' ? 'win' : (match.result === 'Kalah' ? 'loss' : 'draw');
-        
+    const matches = getMatches();
+    if(matches.length === 0) return matchListEl.innerHTML = '<div class="empty-state">Belum ada pertandingan.</div>';
+    matches.forEach(m => {
         const item = document.createElement('div');
-        item.className = `match-item ${cssClass}`;
-        item.innerHTML = `
-            <div>
-                <div class="match-item-info">vs Bot ELO ${match.elo} - <strong>${match.result}</strong></div>
-                <div class="match-item-date">${match.date}</div>
-            </div>
-            <div>▶ Analisis</div>
-        `;
-        // Klik list langsung masuk ke Analisis
-        item.addEventListener('click', () => enterAnalysisMode(match));
+        item.className = `match-item ${m.result === 'Menang' ? 'win' : (m.result === 'Kalah' ? 'loss' : 'draw')}`;
+        item.innerHTML = `<div><div class="match-item-info">vs Bot ELO ${m.elo} - <strong>${m.result}</strong></div><div class="match-item-date">${m.date}</div></div><div>▶ Analisis</div>`;
+        item.addEventListener('click', () => enterAnalysisMode(m));
         matchListEl.appendChild(item);
     });
 }
 
-// --- LOGIKA IN-GAME ---
-
-eloSlider.addEventListener('input', function() {
-    eloDisplay.innerText = this.value;
-    gameElo = this.value;
+// --- LOGIKA GAME ---
+document.getElementById('elo-slider').addEventListener('input', function() {
+    document.getElementById('elo-display').innerText = this.value;
+    gameElo = parseInt(this.value);
 });
 
 function startNewGame() {
-    gameElo = parseInt(eloSlider.value);
-    game.reset();
-    board.start();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    game.reset(); board.start(); ctx.clearRect(0, 0, canvas.width, canvas.height);
     enterGameMode();
 }
 
 function makeBotMove() {
     if (game.game_over()) return;
-
-    // --- 1. SIMULASI ELO RENDAH (MANUSIAWI BLUNDER) ---
-    // Jika ELO di bawah 1000, kita buat bot punya peluang "salah langkah" secara acak
-    if (gameElo < 1000) {
-        // Rumus peluang acak: ELO 100 = 85% ngasal, ELO 500 = 45% ngasal, ELO 900 = 5% ngasal
-        let blunderChance = (1000 - gameElo) / 1000; 
-        
-        if (Math.random() < blunderChance) {
-            let legalMoves = game.moves({ verbose: true });
-            if (legalMoves.length > 0) {
-                // Bot memilih gerakan acak (bisa jadi blunder fatal)
-                let randomMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
-                game.move({
-                    from: randomMove.from,
-                    to: randomMove.to,
-                    promotion: 'q'
-                });
-                board.position(game.fen());
-                checkGameEnd();
-                return; // Berhenti di sini, tidak perlu memanggil Stockfish
-            }
+    
+    // Blunder Manusiawi untuk ELO Rendah
+    if (gameElo < 1000 && Math.random() < ((1000 - gameElo) / 1000)) {
+        let moves = game.moves({ verbose: true });
+        if (moves.length > 0) {
+            let rm = moves[Math.floor(Math.random() * moves.length)];
+            game.move({ from: rm.from, to: rm.to, promotion: 'q' });
+            board.position(game.fen()); checkGameEnd(); return;
         }
     }
-
-    // --- 2. JIKA LOLOS / ELO TINGGI, BARU TANYA STOCKFISH ---
+    
     stockfish.postMessage('uci');
     stockfish.postMessage('setoption name UCI_LimitStrength value true');
-    
-    // FIX: Stockfish minimal menerima ELO 1100. Kita kunci batas bawahnya di sini.
-    let stockfishElo = Math.max(1100, gameElo);
-    stockfish.postMessage('setoption name UCI_Elo value ' + stockfishElo);
-    
+    stockfish.postMessage('setoption name UCI_Elo value ' + Math.max(1100, gameElo));
     stockfish.postMessage('position fen ' + game.fen());
-    
-    // Kedalaman mikir Stockfish (Depth)
-    let depth = gameElo < 1500 ? 2 : (gameElo <= 2200 ? 6 : 12);
-    stockfish.postMessage('go depth ' + depth);
+    stockfish.postMessage('go depth ' + (gameElo < 1500 ? 2 : (gameElo <= 2200 ? 6 : 12)));
 }
-
 
 function checkGameEnd() {
     if (game.in_checkmate()) {
-        const result = game.turn() === 'w' ? 'Kalah' : 'Menang';
-        alert(`Skakmat! Anda ${result}.`);
-        saveMatch(result);
-        showHomeScreen();
+        let res = game.turn() === 'w' ? 'Kalah' : 'Menang';
+        alert(`Skakmat! Anda ${res}.`); saveMatch(res); showHomeScreen();
     } else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
-        alert('Permainan Seri (Draw).');
-        saveMatch('Seri');
-        showHomeScreen();
+        alert('Seri (Draw).'); saveMatch('Seri'); showHomeScreen();
     }
 }
 
 function handleResign() {
-    if (confirm("Yakin ingin menyerah?")) {
-        saveMatch('Kalah');
-        alert("Anda menyerah. Game tersimpan.");
-        showHomeScreen();
-    }
+    if (confirm("Menyerah?")) { saveMatch('Kalah'); showHomeScreen(); }
 }
 
-// Interaksi Drag & Drop In-Game
-function onDragStart(source, piece) {
-    if (currentAppMode !== 'game' || game.game_over() || piece.search(/^b/) !== -1) {
-        return false;
-    }
-}
-
-function onDrop(source, target) {
+function onDragStart(s, p) { if (currentAppMode !== 'game' || game.game_over() || p.search(/^b/) !== -1) return false; }
+function onDrop(s, t) {
     if (currentAppMode !== 'game') return 'snapback';
-    
-    let move = game.move({
-        from: source,
-        to: target,
-        promotion: 'q'
+    let m = game.move({ from: s, to: t, promotion: 'q' });
+    if (m === null) return 'snapback';
+    checkGameEnd(); window.setTimeout(makeBotMove, 250);
+}
+function onSnapEnd() { if (currentAppMode === 'game') board.position(game.fen()); }
+
+// --- LOGIKA ANALISIS ENGINE ON-THE-FLY ---
+
+function getOpeningName(historyArr) {
+    let sanStr = historyArr.map(m => m.san).join(" ");
+    let found = "Posisi Standar";
+    for (let seq in openingBook) { if (sanStr.startsWith(seq)) found = openingBook[seq]; }
+    return found;
+}
+
+// Fungsi Panggil Stockfish Async (Dibungkus Promise)
+function evaluatePositionAsync(fen, depth) {
+    return new Promise(resolve => {
+        let currentCp = 0; let bestMove = '';
+        const tempHandler = function(e) {
+            const line = e.data;
+            if (line.includes('score cp')) {
+                const match = line.match(/score cp (-?\d+)/);
+                if (match) currentCp = parseInt(match[1]);
+            } else if (line.includes('score mate')) {
+                const match = line.match(/score mate (-?\d+)/);
+                if (match) currentCp = parseInt(match[1]) > 0 ? 10000 : -10000;
+            }
+            if (line.startsWith('bestmove')) {
+                bestMove = line.split(' ')[1];
+                stockfish.removeEventListener('message', tempHandler);
+                resolve({ cp: currentCp, bestMove: bestMove });
+            }
+        };
+        stockfish.addEventListener('message', tempHandler);
+        stockfish.postMessage('position fen ' + fen);
+        stockfish.postMessage('go depth ' + depth);
     });
-
-    if (move === null) return 'snapback';
-
-    checkGameEnd();
-    window.setTimeout(makeBotMove, 250);
 }
 
-function onSnapEnd() {
-    if (currentAppMode === 'game') board.position(game.fen());
+function updateEvalBarUI(cp, depth) {
+    let clamped = Math.max(-1000, Math.min(1000, cp));
+    let percent = 50 + (clamped / 20); // 0cp = 50%, 1000cp = 100%
+    evalFillHorizontal.style.width = percent + '%';
+    
+    let displayTxt = (cp / 100).toFixed(2);
+    if (cp > 0) displayTxt = "+" + displayTxt;
+    evalTextHorizontal.innerText = `${displayTxt} (kedalaman: ${depth})`;
 }
 
-// --- LOGIKA ANALISIS (POST-GAME) ---
+function renderSquareBadge(square, text, cssClass) {
+    $('.move-badge').remove(); // Hapus badge lama
+    const squareEl = $('#board .square-' + square);
+    if (squareEl.length > 0) {
+        squareEl.append(`<div class="move-badge ${cssClass}">${text}</div>`);
+    }
+}
 
+async function analyzeCurrentStep() {
+    if (currentAnalysisIndex < 0) {
+        openingNameText.innerText = "Posisi Awal";
+        updateEvalBarUI(0, 0); $('.move-badge').remove(); ctx.clearRect(0,0,canvas.width,canvas.height);
+        return;
+    }
+
+    const moveIndex = currentAnalysisIndex;
+    const move = analysisHistory[moveIndex];
+    const isWhite = move.color === 'w';
+    
+    // Update Opening Name
+    const currentHist = game.history({verbose: true});
+    openingNameText.innerText = getOpeningName(currentHist);
+    evalTextHorizontal.innerText = "Menganalisis...";
+    ctx.clearRect(0,0,canvas.width,canvas.height); // Hapus panah
+
+    // Gunakan Cache jika sudah dianalisis sebelumnya
+    if (!evalCache[moveIndex]) {
+        // Dapatkan FEN sebelum langkah ini terjadi
+        let movePlayed = game.undo(); 
+        let fenBefore = game.fen();
+        game.move(movePlayed); // Kembalikan state
+
+        let fenAfter = game.fen();
+
+        // Evaluasi Sebelum
+        let resBefore = await evaluatePositionAsync(fenBefore, 10);
+        let cpBefore = isWhite ? resBefore.cp : -resBefore.cp;
+
+        // Evaluasi Sesudah
+        let resAfter = await evaluatePositionAsync(fenAfter, 10);
+        let cpAfter = !isWhite ? resAfter.cp : -resAfter.cp; // Relatif ke sudut pandang mesin
+
+        let delta = isWhite ? (cpAfter - cpBefore) : (cpBefore - cpAfter);
+        
+        let classification = "book"; let bText = "🕮"; let bClass = "badge-book";
+
+        // Logic Kategori (Mirip Screenshot)
+        if (moveIndex >= 6) { // Keluar dari teori dasar
+            if (delta >= -10) { bText = "★"; bClass = "badge-best"; }
+            else if (delta >= -25) { bText = "✓"; bClass = "badge-excellent"; }
+            else if (delta >= -50) { bText = "ok"; bClass = "badge-good"; }
+            else if (delta >= -100) { bText = "?!"; bClass = "badge-inaccuracy"; }
+            else if (delta >= -300) { bText = "?"; bClass = "badge-mistake"; }
+            else { bText = "??"; bClass = "badge-blunder"; }
+        }
+
+        evalCache[moveIndex] = {
+            cpFinal: cpAfter,
+            bText: bText,
+            bClass: bClass,
+            recommendedMove: resBefore.bestMove
+        };
+    }
+
+    // Terapkan UI jika user belum berpindah langkah saat proses async selesai
+    if (currentAnalysisIndex === moveIndex) {
+        const data = evalCache[moveIndex];
+        updateEvalBarUI(data.cpFinal, 10);
+        renderSquareBadge(move.to, data.bText, data.bClass);
+    }
+}
+
+// --- NAVIGASI ANALISIS ---
 function setupAnalysisBoard(matchData) {
-    // Buat instance game terpisah untuk mengekstrak riwayat tanpa merusak state utama
     const tempAnalyzer = new Chess();
     tempAnalyzer.load_pgn(matchData.pgn);
     analysisHistory = tempAnalyzer.history({ verbose: true });
     
-    game.reset(); // Set FEN ke posisi awal standar
-    board.position(game.fen());
-    currentAnalysisIndex = -1;
+    game.reset(); board.position(game.fen());
+    currentAnalysisIndex = -1; evalCache = {};
     
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    renderAnalysisLog();
-}
-
-function renderAnalysisLog() {
     logBox.innerHTML = '';
-    analysisHistory.forEach((move, index) => {
-        const isWhite = index % 2 === 0;
-        const stepNum = Math.floor(index / 2) + 1;
-        const stepText = isWhite ? `${stepNum}. ${move.san}` : `${stepNum}... ${move.san}`;
-        
+    analysisHistory.forEach((m, i) => {
+        const isWhite = i % 2 === 0;
+        const stepNum = Math.floor(i / 2) + 1;
         const div = document.createElement('div');
-        div.className = 'log-item';
-        div.id = `log-move-${index}`;
-        div.innerText = stepText;
-        
-        // Klik log langsung melompat ke langkah tersebut
-        div.addEventListener('click', () => jumpToAnalysisMove(index));
+        div.className = 'log-item'; div.id = `log-move-${i}`;
+        div.innerText = isWhite ? `${stepNum}. ${m.san}` : `${stepNum}... ${m.san}`;
+        div.addEventListener('click', () => jumpToAnalysisMove(i));
         logBox.appendChild(div);
     });
+    analyzeCurrentStep();
 }
 
-function updateAnalysisUI() {
+function syncAnalysisUI() {
     board.position(game.fen());
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Hapus panah saat pindah langkah
-    
-    // Highlight log aktif
     document.querySelectorAll('.log-item').forEach(el => el.classList.remove('active'));
     if (currentAnalysisIndex >= 0) {
         const activeLog = document.getElementById(`log-move-${currentAnalysisIndex}`);
-        if (activeLog) {
-            activeLog.classList.add('active');
-            activeLog.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        }
+        if (activeLog) { activeLog.classList.add('active'); activeLog.scrollIntoView({behavior: "smooth", block: "nearest"}); }
     }
+    analyzeCurrentStep(); // Trigger Engine AI
 }
 
 function analysisNextMove() {
     if (currentAnalysisIndex < analysisHistory.length - 1) {
         currentAnalysisIndex++;
         game.move(analysisHistory[currentAnalysisIndex].san);
-        updateAnalysisUI();
+        syncAnalysisUI();
     }
 }
 
@@ -338,90 +341,50 @@ function analysisPrevMove() {
     if (currentAnalysisIndex >= 0) {
         game.undo();
         currentAnalysisIndex--;
-        updateAnalysisUI();
+        syncAnalysisUI();
     }
 }
 
-function jumpToAnalysisMove(targetIndex) {
-    if (targetIndex === currentAnalysisIndex) return;
-    
-    // Jika maju
-    while (currentAnalysisIndex < targetIndex) {
-        currentAnalysisIndex++;
-        game.move(analysisHistory[currentAnalysisIndex].san);
-    }
-    // Jika mundur
-    while (currentAnalysisIndex > targetIndex) {
-        game.undo();
-        currentAnalysisIndex--;
-    }
-    updateAnalysisUI();
+function jumpToAnalysisMove(target) {
+    if (target === currentAnalysisIndex) return;
+    while (currentAnalysisIndex < target) { currentAnalysisIndex++; game.move(analysisHistory[currentAnalysisIndex].san); }
+    while (currentAnalysisIndex > target) { game.undo(); currentAnalysisIndex--; }
+    syncAnalysisUI();
 }
 
-function fetchBestMoveAnalysis() {
-    if (currentAppMode !== 'analysis') return;
-    
-    const btn = document.getElementById('btn-best-move');
-    btn.innerText = "⏳ Sedang Menghitung...";
-    btn.disabled = true;
-    
-    // Minta Stockfish mencari bestmove di posisi saat ini
-    stockfish.postMessage('position fen ' + game.fen());
-    stockfish.postMessage('go depth 12');
-}
-
-// --- UTILITAS MENGGAMBAR PANAH CANVAS ---
-
-function syncCanvasSize() {
-    const boardEl = document.getElementById('board');
-    if (boardEl.clientWidth > 0) {
-        canvas.width = boardEl.clientWidth;
-        canvas.height = boardEl.clientHeight;
-    }
-}
+// --- GAMBAR PANAH ---
 window.addEventListener('resize', syncCanvasSize);
+function syncCanvasSize() {
+    const bEl = document.getElementById('board');
+    if (bEl.clientWidth > 0) { canvas.width = bEl.clientWidth; canvas.height = bEl.clientHeight; }
+}
 
-function drawBestMoveArrow(fromSquare, toSquare) {
+function showBestMoveArrow() {
+    if (currentAnalysisIndex < 0 || !evalCache[currentAnalysisIndex]) return;
+    const bestM = evalCache[currentAnalysisIndex].recommendedMove;
+    if (bestM && bestM !== '(none)') drawArrow(bestM.substring(0, 2), bestM.substring(2, 4));
+}
+
+function drawArrow(fromSq, toSq) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const sqSize = canvas.width / 8;
+    const getC = (sq) => ({ x: (sq.charCodeAt(0)-97 + 0.5)*sqSize, y: (8-parseInt(sq[1]) + 0.5)*sqSize });
+    const p1 = getC(fromSq), p2 = getC(toSq), head = sqSize * 0.3, ang = Math.atan2(p2.y-p1.y, p2.x-p1.x);
     
-    const getCoords = (sq) => {
-        const file = sq.charCodeAt(0) - 97;
-        const rank = 8 - parseInt(sq[1]);
-        return { x: (file + 0.5) * sqSize, y: (rank + 0.5) * sqSize };
-    };
-
-    const p1 = getCoords(fromSquare);
-    const p2 = getCoords(toSquare);
-    const headlen = sqSize * 0.3;
-    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-
-    ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.strokeStyle = 'rgba(129, 182, 76, 0.7)';
-    ctx.lineWidth = sqSize * 0.15;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+    ctx.strokeStyle = 'rgba(66, 135, 245, 0.7)'; ctx.lineWidth = sqSize * 0.15; ctx.lineCap = 'round'; ctx.stroke();
+    
     ctx.beginPath();
     ctx.moveTo(p2.x, p2.y);
-    ctx.lineTo(p2.x - headlen * Math.cos(angle - Math.PI / 6), p2.y - headlen * Math.sin(angle - Math.PI / 6));
-    ctx.lineTo(p2.x - headlen * Math.cos(angle + Math.PI / 6), p2.y - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.lineTo(p2.x - head*Math.cos(ang - Math.PI/6), p2.y - head*Math.sin(ang - Math.PI/6));
+    ctx.lineTo(p2.x - head*Math.cos(ang + Math.PI/6), p2.y - head*Math.sin(ang + Math.PI/6));
     ctx.lineTo(p2.x, p2.y);
-    ctx.fillStyle = 'rgba(129, 182, 76, 0.9)';
-    ctx.fill();
+    ctx.fillStyle = 'rgba(66, 135, 245, 0.9)'; ctx.fill();
 }
 
-// --- INISIALISASI PERTAMA KALI JALAN ---
+// Config Papan
 board = Chessboard('board', {
-    draggable: true,
-    position: 'start',
-    onDragStart: onDragStart,
-    onDrop: onDrop,
-    onSnapEnd: onSnapEnd,
+    draggable: true, position: 'start', onDragStart: onDragStart, onDrop: onDrop, onSnapEnd: onSnapEnd,
     pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
 });
-
-// Mulai aplikasi dengan merender layar Home
 showHomeScreen();
