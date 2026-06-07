@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Web Chess AI - Vercel Ready</title>
+    <title>Pro Web Chess AI - SPA Mode</title>
     
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-    
     <link rel="stylesheet" href="style.css">
     
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -16,41 +15,73 @@
 <body>
     <div class="app-container">
         
-        <div class="board-area">
-            <div class="eval-bar-container">
-                <div id="eval-fill" class="eval-fill"></div>
-            </div>
-            <div class="board-wrapper">
-                <div id="board"></div>
-                <canvas id="arrowCanvas"></canvas>
+        <div id="view-home" class="view-section">
+            <h1 class="main-title">Catur AI Web</h1>
+            <button id="btn-goto-setup" class="btn-primary btn-large">Mulai Game Baru</button>
+            
+            <div class="match-history-container">
+                <h2>List Pertandingan</h2>
+                <div id="match-list" class="match-list">
+                    </div>
             </div>
         </div>
 
-        <div class="panel-area">
-            <div class="panel-header">
-                <h2>Catur AI</h2>
-                <div class="status-box">Status: <span id="game-status">Menunggu permainan dimulai...</span></div>
-            </div>
-            
-            <div class="control-group">
-                <label for="elo-slider">Kekuatan AI (ELO): <span id="elo-display">1500</span></label>
-                <input type="range" id="elo-slider" min="100" max="3400" step="50" value="1500">
-            </div>
-
-            <div class="button-group">
-                <button id="btn-new-game" class="btn-primary">Mulai Game Baru</button>
-                <button id="btn-resign" class="btn-danger" disabled>Menyerah</button>
-                <button id="btn-analyze" class="btn-info" disabled>Mulai Analisis Game</button>
-            </div>
-
-            <div class="analysis-box">
-                <h3>Log Analisis Pasca-Game</h3>
-                <div id="analysis-log" class="analysis-log">
-                    <p class="placeholder-text">Selesaikan permainan untuk melihat analisis akurasi langkah.</p>
+        <div id="view-setup" class="view-section hidden">
+            <div class="modal-card">
+                <h2>Persiapan Game</h2>
+                <p class="subtitle">Tentukan kekuatan Bot (ELO) sebelum memulai.</p>
+                
+                <div class="control-group">
+                    <label for="elo-slider">Kekuatan AI: <span id="elo-display" class="highlight">1500</span> ELO</label>
+                    <input type="range" id="elo-slider" min="100" max="3400" step="50" value="1500">
+                </div>
+                
+                <div class="button-group-row">
+                    <button id="btn-cancel-setup" class="btn-secondary">Kembali</button>
+                    <button id="btn-start-game" class="btn-primary">Mulai Bertanding!</button>
                 </div>
             </div>
         </div>
-        
+
+        <div id="view-board-area" class="view-section hidden">
+            <div class="board-layout">
+                
+                <div class="board-wrapper">
+                    <div id="board"></div>
+                    <canvas id="arrowCanvas"></canvas>
+                </div>
+
+                <div class="panel-area">
+                    
+                    <div id="panel-ingame">
+                        <div class="ingame-status">Permainan Berlangsung</div>
+                        <button id="btn-resign" class="btn-danger btn-large">Menyerah</button>
+                    </div>
+
+                    <div id="panel-analysis" class="hidden">
+                        <div class="analysis-header">
+                            <h3>Mode Analisis</h3>
+                            <button id="btn-back-home" class="btn-secondary btn-small">Kembali ke Home</button>
+                        </div>
+                        
+                        <div class="nav-buttons">
+                            <button id="btn-prev-move" class="btn-info">⬅ Sebelumnya</button>
+                            <button id="btn-next-move" class="btn-info">Selanjutnya ➡</button>
+                        </div>
+                        
+                        <button id="btn-best-move" class="btn-primary btn-full">💡 Tampilkan Langkah Terbaik</button>
+                        
+                        <div class="analysis-box">
+                            <h4>Log Pertandingan</h4>
+                            <div id="analysis-log" class="analysis-log">
+                                </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script src="script.js"></script>
