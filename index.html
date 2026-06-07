@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Web Chess AI - Vercel Ready</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        
+        <div class="board-area">
+            <div class="eval-bar-container">
+                <div id="eval-fill" class="eval-fill"></div>
+            </div>
+            <div class="board-wrapper">
+                <div id="board"></div>
+                <canvas id="arrowCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="panel-area">
+            <div class="panel-header">
+                <h2>Catur AI</h2>
+                <div class="status-box">Status: <span id="game-status">Menunggu permainan dimulai...</span></div>
+            </div>
+            
+            <div class="control-group">
+                <label for="elo-slider">Kekuatan AI (ELO): <span id="elo-display">1500</span></label>
+                <input type="range" id="elo-slider" min="100" max="3400" step="50" value="1500">
+            </div>
+
+            <div class="button-group">
+                <button id="btn-new-game" class="btn-primary">Mulai Game Baru</button>
+                <button id="btn-resign" class="btn-danger" disabled>Menyerah</button>
+                <button id="btn-analyze" class="btn-info" disabled>Mulai Analisis Game</button>
+            </div>
+
+            <div class="analysis-box">
+                <h3>Log Analisis Pasca-Game</h3>
+                <div id="analysis-log" class="analysis-log">
+                    <p class="placeholder-text">Selesaikan permainan untuk melihat analisis akurasi langkah.</p>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

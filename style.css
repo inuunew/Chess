@@ -1,0 +1,223 @@
+/* Reset & Basis Gaya Dark Mode */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: #302e2b;
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: row;
+    gap: 30px;
+    width: 100%;
+    max-width: 1000px;
+}
+
+/* Area Papan & Eval Bar */
+.board-area {
+    display: flex;
+    flex-direction: row;
+    gap: 15px;
+    flex: 1;
+}
+
+.eval-bar-container {
+    width: 24px;
+    background-color: #262421;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.eval-fill {
+    width: 100%;
+    background-color: #ffffff;
+    height: 50%; /* Nilai Default Eval 0.0 */
+    transition: height 0.5s ease-in-out;
+}
+
+.board-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    aspect-ratio: 1 / 1;
+}
+
+#board {
+    width: 100%;
+    height: 100%;
+}
+
+#arrowCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
+/* Area Panel Kontrol */
+.panel-area {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+    min-width: 300px;
+    background-color: #262421;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.panel-header h2 {
+    font-size: 24px;
+    margin-bottom: 5px;
+    color: #ffffff;
+}
+
+.status-box {
+    font-size: 14px;
+    color: #bababa;
+    background-color: #1e1d1b;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.control-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #c3c3c3;
+}
+
+#elo-slider {
+    width: 100%;
+    accent-color: #81b64c;
+    cursor: pointer;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+button {
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    font-size: 15px;
+    font-weight: bold;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+button:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.btn-primary {
+    background-color: #81b64c;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: #92cc57;
+}
+
+.btn-danger {
+    background-color: #ba3f3f;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background-color: #cf4949;
+}
+
+.btn-info {
+    background-color: #2b70ab;
+}
+
+.btn-info:hover:not(:disabled) {
+    background-color: #3586cc;
+}
+
+.analysis-box {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin-top: 10px;
+}
+
+.analysis-box h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #ffffff;
+}
+
+.analysis-log {
+    background-color: #1e1d1b;
+    border: 1px solid #3c3a38;
+    border-radius: 5px;
+    padding: 10px;
+    height: 250px;
+    overflow-y: auto;
+    font-size: 13px;
+    color: #d1d1d1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.log-entry {
+    padding: 6px 10px;
+    border-radius: 4px;
+    background-color: #262421;
+    border-left: 4px solid #81b64c;
+}
+
+.log-entry.blunder { border-left-color: #ba3f3f; }
+.log-entry.mistake { border-left-color: #d68936; }
+.log-entry.inaccuracy { border-left-color: #d6c636; }
+.log-entry.excellent { border-left-color: #4287f5; }
+
+.placeholder-text {
+    text-align: center;
+    color: #737373;
+    font-style: italic;
+    margin-top: 20px;
+}
+
+/* Responsivitas Mobile */
+@media (max-width: 800px) {
+    .app-container {
+        flex-direction: column;
+    }
+    .board-wrapper {
+        max-width: 100%;
+    }
+}
