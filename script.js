@@ -104,6 +104,11 @@ function enterGameMode() {
     hideAllViews();
     viewBoardArea.classList.remove('hidden');
     panelIngame.classList.remove('hidden');
+    
+    // --- FIX: Paksa papan menghitung ulang ukuran setelah elemen dimunculkan ---
+    if (board) board.resize();
+    // -------------------------------------------------------------------------
+    
     syncCanvasSize();
 }
 
@@ -112,9 +117,15 @@ function enterAnalysisMode(matchData) {
     hideAllViews();
     viewBoardArea.classList.remove('hidden');
     panelAnalysis.classList.remove('hidden');
+    
+    // --- FIX: Paksa papan menghitung ulang ukuran setelah elemen dimunculkan ---
+    if (board) board.resize();
+    // -------------------------------------------------------------------------
+    
     syncCanvasSize();
     setupAnalysisBoard(matchData);
 }
+
 
 // --- LOGIKA PENYIMPANAN (LOCAL STORAGE) ---
 
